@@ -1,0 +1,7 @@
+
+=================================================================
+NARX + Per-Site IF+CUSUM  |  ACN-Data-Static
+=================================================================
+Train MSE=2.1133e-03  Estim MSE=2.1859e-03  Train EoE mean=0.0276
+Attacked=30195 (9.0%)  EoE_normal=0.0273  EoE_attack=4.5224  Separation=166x
+

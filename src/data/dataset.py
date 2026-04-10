@@ -1,9 +1,13 @@
 """
-NARX Dataset Builder
-Creates time-delayed input windows (open-loop / series-parallel) for NARX training.
+Dataset Builder
+Creates time-delayed input windows for NARX and Attention-BiLSTM training.
 
+NARX (flat vectors):
   x(t) = [u(t), u(t-1), ..., u(t-mx+1),   <- exogenous inputs
            y(t-1), y(t-2), ..., y(t-my)]    <- past target values
+
+Attention-BiLSTM (3-D sequences):
+  x(t) = (seq_len, n_features) window of past exogenous rows
 
 MUST prevent cross-session leakage by building windows per session.
 """
@@ -17,21 +21,13 @@ from sklearn.preprocessing import MinMaxScaler
 TARGET_COL = "kWhDeliveredPerTimeStamp"
 
 EXOG_COLS = [
-    "stationID",
     "siteID",
     "connectionTime_unix",
-    "doneChargingTime_unix",
-    "kWhDelivered",
     "timestamps",                 # The 5-minute timestep offset
-    "modifiedAt_unix",
-    "chargingCurrent",
-    "pilotSignal",
-    "userID",
-    "WhPerMile",
-    "milesRequested",
-    "minutesAvailable",
-    "requestedDeparture_unix",
-    "kWhRequested",
+    "Charging Current (A)",
+    "Voltage (V)",
+    "Energy Delivered (kWh)",
+    "Power (kW)",
 ]
 
 def _to_unix(series: pd.Series) -> pd.Series:
@@ -84,42 +80,127 @@ def build_narx_windows_per_session(
     session_ids: np.ndarray,
     mx: int = 2,
     my: int = 2,
+    max_sessions: int = None,
 ) -> tuple[np.ndarray, np.ndarray]:
     """
     Construct NARX input/output pairs grouped by sessionID to avoid leakage.
     If a session is shorter than max(mx, my), it's skipped.
+
+    Uses sort-based grouping (O(n log n)) instead of per-session boolean masking
+    (O(n_sessions × n_total)) for efficiency with large datasets.
+
+    max_sessions: if set, randomly subsample to this many sessions (for speed).
     """
-    n_delay = max(mx, my)
+    n_delay  = max(mx, my)
+    n_feat   = X_sc.shape[1]
+    inp_size = n_feat * mx + my
+
+    # Sort by session ID for O(1) group slicing
+    sort_idx = np.argsort(session_ids, kind="stable")
+    s_sorted = session_ids[sort_idx]
+    X_sorted = X_sc[sort_idx]
+    y_sorted = y_sc[sort_idx]
+
+    _, first_occ, counts = np.unique(s_sorted, return_index=True, return_counts=True)
+
+    if max_sessions is not None and max_sessions < len(first_occ):
+        rng = np.random.default_rng(0)
+        chosen = rng.choice(len(first_occ), size=max_sessions, replace=False)
+        chosen.sort()
+        first_occ = first_occ[chosen]
+        counts    = counts[chosen]
+
     inputs, targets = [], []
 
-    # Get indices for each session
-    unique_sessions = np.unique(session_ids)
-    
-    for s_id in unique_sessions:
-        mask = (session_ids == s_id)
-        X_s = X_sc[mask]
-        y_s = y_sc[mask]
-        
-        n = len(y_s)
-        if n <= n_delay:
+    for start, cnt in zip(first_occ, counts):
+        if cnt <= n_delay:
             continue
-            
-        for t in range(n_delay, n):
+        X_s = X_sorted[start : start + cnt]
+        y_s = y_sorted[start : start + cnt]
+
+        for t in range(n_delay, cnt):
             exog_window = X_s[t - mx + 1 : t + 1][::-1].flatten()
             past_y      = y_s[t - my : t][::-1]
-            inp = np.concatenate([exog_window, past_y])
-            inputs.append(inp)
+            inputs.append(np.concatenate([exog_window, past_y]))
             targets.append(y_s[t])
 
     if len(inputs) == 0:
-        # Fallback if somehow things are too small
-        return np.zeros((0, EXOG_COLS.__len__()*mx + my)), np.zeros((0,))
-        
+        return np.zeros((0, inp_size), dtype=np.float32), np.zeros((0,), dtype=np.float32)
+
+    return np.array(inputs, dtype=np.float32), np.array(targets, dtype=np.float32)
+
+
+def build_sequence_windows(
+    X_sc: np.ndarray,
+    y_sc: np.ndarray,
+    session_ids: np.ndarray,
+    seq_len: int = 4,
+    max_sessions: int = None,
+) -> tuple[np.ndarray, np.ndarray]:
+    """
+    Build (seq_len, n_features) 3-D windows for Attention-BiLSTM.
+
+    Each sample is a rolling window of `seq_len` past exogenous rows
+    within the same charging session (no cross-session leakage).
+
+    Uses sort-based grouping for efficiency with large datasets.
+    max_sessions: if set, randomly subsample to this many sessions.
+
+    Returns
+    -------
+    inputs  : (N, seq_len, n_features)  float32
+    targets : (N,)                      float32
+    """
+    n_feat = X_sc.shape[1]
+
+    sort_idx = np.argsort(session_ids, kind="stable")
+    s_sorted = session_ids[sort_idx]
+    X_sorted = X_sc[sort_idx]
+    y_sorted = y_sc[sort_idx]
+
+    _, first_occ, counts = np.unique(s_sorted, return_index=True, return_counts=True)
+
+    if max_sessions is not None and max_sessions < len(first_occ):
+        rng = np.random.default_rng(0)
+        chosen = rng.choice(len(first_occ), size=max_sessions, replace=False)
+        chosen.sort()
+        first_occ = first_occ[chosen]
+        counts    = counts[chosen]
+
+    inputs, targets = [], []
+
+    for start, cnt in zip(first_occ, counts):
+        if cnt <= seq_len:
+            continue
+        X_s = X_sorted[start : start + cnt]
+        y_s = y_sorted[start : start + cnt]
+
+        for t in range(seq_len, cnt):
+            inputs.append(X_s[t - seq_len : t])
+            targets.append(y_s[t])
+
+    if len(inputs) == 0:
+        return np.zeros((0, seq_len, n_feat), dtype=np.float32), np.zeros((0,), dtype=np.float32)
+
     return np.array(inputs, dtype=np.float32), np.array(targets, dtype=np.float32)
 
 
 class NARXDataset(Dataset):
     def __init__(self, inputs: np.ndarray, targets: np.ndarray):
+        self.X = torch.tensor(inputs,  dtype=torch.float32)
+        self.y = torch.tensor(targets, dtype=torch.float32).unsqueeze(1)
+
+    def __len__(self):
+        return len(self.y)
+
+    def __getitem__(self, idx):
+        return self.X[idx], self.y[idx]
+
+
+class SequenceDataset(Dataset):
+    """Dataset for Attention-BiLSTM: inputs are (seq_len, n_features) tensors."""
+    def __init__(self, inputs: np.ndarray, targets: np.ndarray):
+        # inputs: (N, seq_len, n_features)
         self.X = torch.tensor(inputs,  dtype=torch.float32)
         self.y = torch.tensor(targets, dtype=torch.float32).unsqueeze(1)
 
@@ -138,10 +219,21 @@ def build_datasets(
     val_ratio: float = 0.15,
     test_ratio: float = 0.15,
     batch_size: int = 64,
+    model_type: str = "narx",    # "narx" | "bilstm"
+    seq_len: int = 4,            # only used when model_type="bilstm"
+    max_train_sessions: int = 10000,   # cap training sessions for tractability
+    max_estim_sessions: int = 5000,    # cap estimation sessions for tractability
 ) -> dict:
 
     X_tr_raw, y_tr_raw, s_tr = prepare_features(df_train)
     X_es_raw, y_es_raw, s_es = prepare_features(df_estim)
+
+    # Clip outlier targets: max L2 charger output is ~0.64 kWh/5min (32A×240V×5/60/1000).
+    # Values up to 1.0 kWh add a safety margin. Without clipping, outliers (up to 39 kWh)
+    # compress all normal values into a tiny [0, 0.016] region of scaled space.
+    Y_CLIP = 1.0
+    y_tr_raw = np.clip(y_tr_raw, 0.0, Y_CLIP)
+    y_es_raw = np.clip(y_es_raw, 0.0, Y_CLIP)
 
     scaler_X = MinMaxScaler()
     scaler_y = MinMaxScaler()
@@ -152,8 +244,22 @@ def build_datasets(
     X_es_sc = scaler_X.transform(X_es_raw).astype(np.float32)
     y_es_sc = scaler_y.transform(y_es_raw.reshape(-1, 1)).flatten().astype(np.float32)
 
-    X_tr_w, y_tr_w = build_narx_windows_per_session(X_tr_sc, y_tr_sc, s_tr, mx=mx, my=my)
-    X_es_w, y_es_w = build_narx_windows_per_session(X_es_sc, y_es_sc, s_es, mx=mx, my=my)
+    if model_type == "bilstm":
+        X_tr_w, y_tr_w = build_sequence_windows(
+            X_tr_sc, y_tr_sc, s_tr, seq_len=seq_len,
+            max_sessions=max_train_sessions)
+        X_es_w, y_es_w = build_sequence_windows(
+            X_es_sc, y_es_sc, s_es, seq_len=seq_len,
+            max_sessions=max_estim_sessions)
+        DatasetCls = SequenceDataset
+    else:
+        X_tr_w, y_tr_w = build_narx_windows_per_session(
+            X_tr_sc, y_tr_sc, s_tr, mx=mx, my=my,
+            max_sessions=max_train_sessions)
+        X_es_w, y_es_w = build_narx_windows_per_session(
+            X_es_sc, y_es_sc, s_es, mx=mx, my=my,
+            max_sessions=max_estim_sessions)
+        DatasetCls = NARXDataset
 
     # 4. Temporal split on the training windows
     n = len(y_tr_w)
@@ -168,9 +274,15 @@ def build_datasets(
     X_test,  y_test  = X_tr_w[n_train+n_val:],       y_tr_w[n_train+n_val:]
 
     def loader(x, y, shuffle=False):
-        return DataLoader(NARXDataset(x, y), batch_size=batch_size, shuffle=shuffle)
+        return DataLoader(DatasetCls(x, y), batch_size=batch_size, shuffle=shuffle)
 
-    print(f"[INFO] NARX input size: {X_tr_w.shape[1] if len(X_tr_w) else 0}")
+    if model_type == "bilstm":
+        shape_info = {"seq_len": X_tr_w.shape[1] if len(X_tr_w) else 0,
+                      "n_features": X_tr_w.shape[2] if len(X_tr_w) else 0}
+        print(f"[INFO] BiLSTM window: seq_len={shape_info['seq_len']}  n_features={shape_info['n_features']}")
+    else:
+        shape_info = {"input_size": X_tr_w.shape[1] if len(X_tr_w) else 0}
+        print(f"[INFO] NARX input size: {shape_info['input_size']}")
     print(f"[INFO] Split sizes — train: {len(y_train)}, val: {len(y_val)}, test: {len(y_test)}")
     print(f"       estim: {len(y_es_w)}")
 
@@ -182,9 +294,12 @@ def build_datasets(
             "estim": loader(X_es_w,  y_es_w),
         },
         "scalers": {"X": scaler_X, "y": scaler_y},
-        "shapes":  {"input_size": X_tr_w.shape[1] if len(X_tr_w) else 0},
+        "shapes":  shape_info,
         "raw": {
             "X_train_w": X_tr_w, "y_train_w": y_tr_w,
             "X_estim_w": X_es_w, "y_estim_w": y_es_w,
+            # Pass through site IDs for per-site evaluation
+            "site_ids_train": df_train["siteID"].values if "siteID" in df_train.columns else None,
+            "site_ids_estim": df_estim["siteID"].values if "siteID" in df_estim.columns else None,
         },
     }

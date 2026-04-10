@@ -1,0 +1,72 @@
+\relax 
+\providecommand\hyper@newdestlabel[2]{}
+\providecommand\HyField@AuxAddToFields[1]{}
+\providecommand\HyField@AuxAddToCoFields[2]{}
+\@writefile{toc}{\contentsline {section}{\numberline {1}The Problem: What Is Being Solved?}{3}{section.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {1.1}Threat Context}{3}{subsection.1.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {1.2}Why Existing Approaches Fail}{3}{subsection.1.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {1.3}The Solution Paradigm: Estimate Then Detect}{3}{subsection.1.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {2}The Dataset: Caltech ACN-Data}{3}{section.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {2.1}Source and Content}{3}{subsection.2.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {2.2}Preprocessing: From Sessions to Time-Series}{4}{subsection.2.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {3}The NARX Neural Network — Deep Dive}{4}{section.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.1}What NARX Stands For}{4}{subsection.3.1}\protected@file@percent }
+\newlabel{eq:narx}{{1}{4}{What NARX Stands For}{equation.1}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.2}Architecture Specification}{5}{subsection.3.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.3}The 15 Exogenous Features}{5}{subsection.3.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.4}Open-Loop vs. Closed-Loop: The Critical Distinction}{5}{subsection.3.4}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {4}Core Concepts: Non-Linearity and Multi-Modality}{6}{section.4}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.1}Non-Linear Data in EV Charging}{6}{subsection.4.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.2}Multi-Modal Data in FDI Detection}{6}{subsection.4.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {5}Technical Specifics: Weights and Gradients}{6}{section.5}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.1}Xavier (Glorot) Uniform Initialization}{6}{subsection.5.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.2}NARX Input Window Construction (\texttt  {\small  dataset.py})}{7}{subsection.5.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.3}Why NARX for EV Charging?}{7}{subsection.5.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {6}Training Pipeline (\texttt  {\small  src/train/train.py})}{7}{section.6}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {6.1}Training Hyperparameters}{7}{subsection.6.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {6.2}Training Flow}{7}{subsection.6.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {6.3}Target Benchmark}{8}{subsection.6.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {7}Evolution of the Detection Layer}{8}{section.7}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {7.1}Iteration 1: Global IQR — The Paper Baseline (\texttt  {\small  evaluate.py})}{8}{subsection.7.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {7.2}Iteration 2: Session-Aware IQR (\texttt  {\small  evaluate.py})}{9}{subsection.7.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {7.3}Iteration 3: Isolation Forest (\texttt  {\small  isolation\_forest.py})}{9}{subsection.7.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {7.4}Iteration 4 (Final): Two-Stage IF + CUSUM (\texttt  {\small  cusum\_if.py})}{10}{subsection.7.4}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {8}CUSUM: The Temporal Confirmation Stage}{10}{section.8}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {8.1}What CUSUM Is}{10}{subsection.8.1}\protected@file@percent }
+\newlabel{eq:cusum}{{2}{10}{What CUSUM Is}{equation.2}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {8.2}Intuition Behind Each Parameter}{10}{subsection.8.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {8.3}Physical Motivation for CUSUM in This Context}{11}{subsection.8.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {8.4}CUSUM Parameter Tuning}{11}{subsection.8.4}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {9}The Complete Two-Stage Pipeline}{11}{section.9}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {9.1}Offline Training Phase}{11}{subsection.9.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {9.2}Online Detection Phase (per timestamp $t$)}{11}{subsection.9.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {10}Results and Quantitative Comparison}{12}{section.10}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {10.1}Main Four-Way Comparison (868 Samples)}{12}{subsection.10.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {10.2}CUSUM Parameter Results}{12}{subsection.10.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {11}Ablation Study: Attack Intensity Sweep (\texttt  {\small  ablation.py})}{12}{section.11}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {11.1}Setup}{12}{subsection.11.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {11.2}Results Table}{13}{subsection.11.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {11.3}Key Ablation Findings}{13}{subsection.11.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {12}Complete File-by-File Breakdown}{13}{section.12}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {12.1}\texttt  {\small  src/data/download\_acn.py}}{13}{subsection.12.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {12.2}\texttt  {\small  src/data/preprocess.py}}{13}{subsection.12.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {12.3}\texttt  {\small  src/data/dataset.py}}{13}{subsection.12.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {12.4}\texttt  {\small  src/models/narx.py}}{14}{subsection.12.4}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {12.5}\texttt  {\small  src/train/train.py}}{14}{subsection.12.5}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {12.6}\texttt  {\small  src/eval/evaluate.py}}{14}{subsection.12.6}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {12.7}\texttt  {\small  src/eval/isolation\_forest.py}}{14}{subsection.12.7}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {12.8}\texttt  {\small  src/eval/cusum\_if.py}}{15}{subsection.12.8}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {12.9}\texttt  {\small  src/eval/ablation.py}}{15}{subsection.12.9}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {13}Frequently Asked Professor Questions}{15}{section.13}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Q1: Why use a NARX and not an LSTM?}{15}{section*.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Q2: Why not train the NARX in closed-loop?}{15}{section*.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Q3: Why is injection of attacks synthetic?}{15}{section*.4}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Q4: Why not use a global threshold after IF?}{15}{section*.5}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Q5: Why is F1 only 0.764 if recall is perfect?}{15}{section*.6}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Q6: What is the physical timescale of an attack?}{16}{section*.7}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Q7: Does the method work on real-time data?}{16}{section*.8}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {14}Discussion Points and Limitations}{16}{section.14}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {14.1}Why Recall = 1.0 Is the Design Goal}{16}{subsection.14.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {14.2}Limitations}{16}{subsection.14.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {15}Summary Cheat Sheet}{17}{section.15}\protected@file@percent }
+\gdef \@abspage@last{17}

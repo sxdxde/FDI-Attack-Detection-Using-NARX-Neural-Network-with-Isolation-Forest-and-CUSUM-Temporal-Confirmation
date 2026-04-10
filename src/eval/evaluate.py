@@ -61,10 +61,11 @@ def flag_spikes(eoe: np.ndarray, lb: float, ub: float) -> np.ndarray:
     return (eoe < lb) | (eoe > ub)
 
 
-def sliding_window_declare(spikes: np.ndarray, q: int = 5) -> np.ndarray:
+def sliding_window_declare(spikes: np.ndarray, q: int = 3) -> np.ndarray:
     """
     Sliding window of length q.
     Declare FDI=1 at position t if spikes[t-q+1 .. t] are ALL True.
+    q=3 (relaxed from 5) reduces false negatives on short bursts.
     Returns integer label array of same length as spikes.
     """
     n       = len(spikes)
@@ -145,11 +146,21 @@ def inject_fdi_attacks(
     y_true: np.ndarray,
     attack_fraction: float = 0.10,
     burst_len_range: tuple = (5, 15),
-    scale_range: tuple    = (3.0, 8.0),
+    scale_range: tuple    = (1.0, 2.0),
     seed: int             = 42,
 ) -> tuple[np.ndarray, np.ndarray]:
     """
-    Randomly inject bursts of scaled noise into y_true to simulate FDI attacks.
+    Randomly inject bursts of additive FDI attacks into y_true.
+
+    CRITICAL FIX: Uses additive injection instead of multiplicative.
+    The old `y_att = y_true * scale` was invisible for zero-target timesteps
+    (73.5% of the multi-site dataset), mathematically capping recall at ~26.5%.
+
+    Additive injection `y_att = y_true + scale * baseline` works on ALL
+    timesteps (idle and charging) and creates a clear, detectable anomaly.
+
+    baseline = mean of all positive (active-charging) target values, so
+    the injected magnitude is proportional to a real charging signal.
 
     Returns
     -------
@@ -160,13 +171,18 @@ def inject_fdi_attacks(
     y_att = y_true.copy()
     gt    = np.zeros(len(y_true), dtype=int)
 
-    n_attacks  = max(1, int(len(y_true) * attack_fraction / np.mean(burst_len_range)))
+    # Compute positive-charging baseline (mean of non-zero targets)
+    pos_vals = y_true[y_true > 1e-6]
+    baseline = float(np.mean(pos_vals)) if len(pos_vals) > 0 else 0.05
+
+    n_attacks = max(1, int(len(y_true) * attack_fraction / np.mean(burst_len_range)))
     for _ in range(n_attacks):
-        start = rng.integers(0, len(y_true) - burst_len_range[1])
+        start = rng.integers(0, max(1, len(y_true) - burst_len_range[1]))
         blen  = rng.integers(*burst_len_range)
         scale = rng.uniform(*scale_range)
         end   = min(start + blen, len(y_true))
-        y_att[start:end] = y_att[start:end] * scale   # multiplicative injection
+        # Additive injection: clearly visible regardless of base value
+        y_att[start:end] = y_att[start:end] + scale * baseline
         gt[start:end]    = 1
     return y_att, gt
 
